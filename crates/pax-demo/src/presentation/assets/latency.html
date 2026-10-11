@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>Pax · Latency</title>
+        <link rel="stylesheet" href="/style.css" />
+        <script type="module" src="/app.js"></script>
+    </head>
+    <body data-page="latency">
+        <header>
+            <div>
+                <strong>PAX ORDERBOOK</strong
+                ><span class="subtitle">A small Rust orderbook explorer</span>
+            </div>
+            <nav aria-label="Pages">
+                <a href="/">Orderbook</a
+                ><a href="/latency" aria-current="page">Latency</a>
+            </nav>
+        </header>
+        <main>
+            <div class="title">
+                <h1>Latency</h1>
+                <span id="source" class="badge">Connecting</span>
+            </div>
+            <p id="health" role="status">Waiting for samples.</p>
+            <p id="display-freshness" class="muted" role="status">
+                Connecting to the demo…
+            </p>
+            <details id="recovery-history" class="diagnostics" hidden>
+                <summary id="recovery-summary">Recovery history</summary>
+                <p id="last-rejection" class="muted"></p>
+            </details>
+            <div id="cards" class="cards"></div>
+            <p id="primary-status" class="muted"></p>
+            <section class="panel" id="ingress-panel">
+                <div class="title">
+                    <h2>SDK ingress → book commit</h2>
+                    <button id="pause" type="button">Pause display</button>
+                </div>
+                <p>
+                    The primary metric ends when the update has been validated
+                    and committed to the book. Publication and browser rendering
+                    are separate.
+                </p>
+                <div class="controls">
+                    <label
+                        >Ingress source<select id="ingress-source">
+                            <option value="auto">
+                                Auto · first window, prefer NIC
+                            </option>
+                            <option value="first-software">
+                                First observed kernel RX window
+                            </option>
+                            <option value="first-hardware">
+                                First observed NIC RX window
+                            </option>
+                            <option value="software">
+                                Completion kernel RX batch
+                            </option>
+                            <option value="hardware">
+                                Completion NIC RX batch
+                            </option>
+                        </select></label
+                    ><label
+                        >Breakdown<select id="ingress-breakdown">
+                            <option value="reads">Read progress</option>
+                            <option value="arrivals">
+                                Associated arrivals
+                            </option>
+                        </select></label
+                    ><label
+                        >Correlated flame graph<select id="ingress-event">
+                            <option value="p50">Event at p50 total</option>
+                            <option value="p99">Event at p99 total</option>
+                        </select></label
+                    >
+                </div>
+                <p id="ingress-meta" class="muted">
+                    Waiting for qualified ingress samples.
+                </p>
+                <p id="ingress-arrival-meta" class="muted" hidden></p>
+                <details class="diagnostics" id="ingress-clock-models">
+                    <summary>Clock models for selected SDK events</summary>
+                    <p id="ingress-clock-p50" class="muted">
+                        Waiting for a qualified primary ingress event.
+                    </p>
+                    <p id="ingress-clock-p99" class="muted">
+                        Clock details describe offset alignment; absolute clock
+                        accuracy and packet association are separate.
+                    </p>
+                </details>
+                <div class="chart-scroll">
+                    <table>
+                        <caption>
+                            Phases of the actual events at p50 and p99 total
+                            latency. Percentages divide by that event’s total;
+                            these are not independent phase percentiles.
+                        </caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Phase</th>
+                                <th scope="col">At p50 total</th>
+                                <th scope="col">%</th>
+                                <th scope="col">At p99 total</th>
+                                <th scope="col">%</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ingress-table"></tbody>
+                    </table>
+                </div>
+                <div id="ingress-chart" class="chart-scroll"></div>
+                <p id="ingress-detail" class="detail" aria-live="polite"></p>
+                <details>
+                    <summary>How to read this measurement</summary>
+                    <p class="muted">
+                        The selected first-read window or completion batch is a
+                        proxy for packet ingress. Where both associated read
+                        ends are available, the timeline separates time between
+                        reads from time after the last read. The former includes
+                        input availability, transport work and scheduling; the
+                        latter includes remaining TLS/framing and buffered
+                        residence. Exact first contributing packet and last
+                        required TLS-record arrival are unavailable. Read-ahead
+                        and buffered messages limit attribution. Clock
+                        uncertainty does not bound this packet-position
+                        ambiguity. Active socket/TLS operation windows below are
+                        separate diagnostics and are not added to this timeline.
+                    </p>
+                </details>
+            </section>
+            <section class="panel">
+                <div class="title">
+                    <h2>SDK latency trend</h2>
+                    <label class="history-range"
+                        >Range<select id="history-range">
+                            <option value="60">1 minute</option>
+                            <option value="300" selected>5 minutes</option>
+                        </select></label
+                    >
+                </div>
+                <p id="history-meta" class="muted">
+                    Waiting for qualified SDK windows.
+                </p>
+                <div id="history-chart" class="history-chart"></div>
+                <div class="legend">
+                    <span class="history-p50">p50 total</span
+                    ><span class="history-p99">p99 total</span>
+                </div>
+                <p class="muted">
+                    Shading shows modeled clock alignment uncertainty for the
+                    selected percentile events. Sampling error and packet
+                    association limits are separate. Missing clock budgets
+                    remain unshaded.
+                </p>
+                <details>
+                    <summary>About the trend</summary>
+                    <p class="muted">
+                        This tab observes the existing overlapping 10-second SDK
+                        window at most once per second. These are window
+                        summaries, not independent one-second percentiles. The
+                        horizontal axis is browser observation time; it does not
+                        enter SDK latency. Gaps mark stale/unavailable data or
+                        polling pauses. Source, policy, generation and session
+                        changes start a new series.
+                    </p>
+                </details>
+            </section>
+            <details class="diagnostics">
+                <summary>Network estimates &amp; measurement policy</summary>
+                <section class="panel">
+                    <h2>Before local ingress: network &amp; exchange origin</h2>
+                    <p id="network-estimate">
+                        Destination network estimate requires a fresh completed
+                        route probe.
+                    </p>
+                    <p id="route">
+                        Route diagnostics are off. Hop RTTs cannot establish
+                        data-generation time or be added as one-way stages.
+                    </p>
+                    <p class="unknown">
+                        Exchange origin → book: unavailable. A future nanosecond
+                        timestamp needs documented FPGA, gateway or emission
+                        semantics plus qualified clock alignment. Nanosecond
+                        units alone do not establish accuracy.
+                    </p>
+                    <p class="muted">
+                        Destination RTT/2 assumes a symmetric path and remains
+                        separate from measured SDK latency. Application
+                        heartbeat RTT is also a separate observation.
+                    </p>
+                </section>
+                <section class="panel">
+                    <h2>Measurement policy &amp; health</h2>
+                    <p id="measurement-health" role="status">
+                        Loading independent status.
+                    </p>
+                    <div class="chart-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Domain</th>
+                                    <th>Selection</th>
+                                    <th>Coverage</th>
+                                </tr>
+                            </thead>
+                            <tbody id="measurement-policy"></tbody>
+                        </table>
+                    </div>
+                    <p class="muted">
+                        Different domains count different operations. Sampling
+                        and overload can omit busy periods; percentiles describe
+                        retained observations. Missing probes are unavailable,
+                        never zero.
+                    </p>
+                </section>
+            </details>
+            <details id="sdk-details" class="diagnostics">
+                <summary>
+                    Processing details: socket, TLS, delivery and book
+                </summary>
+                <section class="panel">
+                    <h2>Component detail controls</h2>
+                    <div class="controls">
+                        <label
+                            >View<select id="trace-select">
+                                <option value="latest">Latest event</option>
+                                <option value="aggregate">
+                                    Aggregate shown events
+                                </option>
+                            </select></label
+                        ><label
+                            >Scale<select id="zoom">
+                                <option value="1">Fit width</option>
+                                <option value="2">2×</option>
+                                <option value="4">4×</option>
+                                <option value="8">8×</option>
+                            </select></label
+                        >
+                    </div>
+                </section>
+                <section class="panel">
+                    <h2>Socket, TLS &amp; WebSocket</h2>
+                    <p id="receive-meta" class="muted"></p>
+                    <div id="receive-chart" class="chart-scroll"></div>
+                    <p
+                        id="receive-detail"
+                        class="detail"
+                        aria-live="polite"
+                    ></p>
+                    <p id="receive-boundaries" class="muted"></p>
+                    <details>
+                        <summary>Timing boundaries &amp; coverage</summary>
+                        <p id="receive-coverage"></p>
+                        <p>
+                            Active poll wall time includes possible preemption.
+                            TLS adapter work includes authentication, buffering
+                            and copying; it does not isolate cryptographic
+                            instructions. The read window can omit earlier
+                            buffered TLS bytes or include read-ahead. First
+                            contributing packet and last required authenticated
+                            TLS record remain unavailable. Shared batch work is
+                            counted once by the operation that performed it; it
+                            is not duplicated onto buffered messages. Pending
+                            time is separate and includes idle input waits and
+                            scheduling.
+                        </p>
+                    </details>
+                </section>
+                <section class="panel">
+                    <h2>Inside socket reads</h2>
+                    <p id="readwork-meta" class="muted"></p>
+                    <div id="readwork-chart" class="chart-scroll"></div>
+                    <p
+                        id="readwork-detail"
+                        class="detail"
+                        aria-live="polite"
+                    ></p>
+                </section>
+                <section class="panel">
+                    <h2>Delivery before decoding</h2>
+                    <p id="delivery-meta" class="muted"></p>
+                    <div id="delivery-chart" class="chart-scroll"></div>
+                    <p
+                        id="delivery-detail"
+                        class="detail"
+                        aria-live="polite"
+                    ></p>
+                    <p class="muted">
+                        The selected trace or aggregate uses the component
+                        detail controls. These stages partition queue /
+                        dispatch. TLS and WebSocket assembly finish before this
+                        timer starts. Callback bookkeeping follows the
+                        processing endpoint.
+                    </p>
+                </section>
+                <section class="panel">
+                    <h2>JSON decode &amp; book processing</h2>
+                    <p id="trace-meta" class="muted"></p>
+                    <div id="rust-chart" class="chart-scroll"></div>
+                    <p id="rust-detail" class="detail" aria-live="polite">
+                        Tap a stage to inspect its duration.
+                    </p>
+                    <div class="legend">
+                        <span class="decode">Decode</span
+                        ><span class="preflight">Preflight</span
+                        ><span class="mutation">Mutation</span
+                        ><span class="validation">Validation</span
+                        ><span class="other">Other / rejected</span>
+                    </div>
+                    <p class="muted">
+                        Widths are exclusive measured durations. The parent is
+                        their sum. Percentile cards describe complete callbacks,
+                        not an invented percentile trace. Tiny stages keep their
+                        own nanosecond scale.
+                    </p>
+                </section>
+            </details>
+            <details id="presentation-details" class="diagnostics">
+                <summary>
+                    Presentation details: reports, browser and clock
+                </summary>
+                <section class="panel">
+                    <h2>Secondary: connection &amp; presentation</h2>
+                    <div id="secondary-cards" class="cards"></div>
+                </section>
+                <section class="panel">
+                    <h2>Secondary: report preparation</h2>
+                    <p id="report-meta" class="muted"></p>
+                    <div id="report-chart" class="chart-scroll"></div>
+                    <p id="report-detail" class="detail" aria-live="polite"></p>
+                </section>
+                <section class="panel">
+                    <h2>Secondary: first browser observation</h2>
+                    <p class="muted">
+                        The timeline freezes at this tab’s first frame
+                        opportunity for the commit. Publication wait ends at its
+                        first encoded view; later refreshes do not lengthen it.
+                        Opening this page later can increase first browser
+                        delivery.
+                    </p>
+                    <p id="overall-age" class="muted"></p>
+                    <p id="overall-meta" class="muted"></p>
+                    <div id="overall-chart" class="chart-scroll"></div>
+                    <p
+                        id="overall-detail"
+                        class="detail"
+                        aria-live="polite"
+                    ></p>
+                    <div class="unknown">
+                        Pax origin → complete local message: unavailable. No
+                        event-origin timestamp or exchange clock alignment.
+                    </div>
+                </section>
+                <section class="panel">
+                    <h2>This browser</h2>
+                    <p id="browser-meta" class="muted">
+                        Measuring this tab only.
+                    </p>
+                    <div id="browser-chart" class="chart-scroll"></div>
+                    <p
+                        id="browser-detail"
+                        class="detail"
+                        aria-live="polite"
+                    ></p>
+                    <p class="muted">
+                        Receive/parse/DOM durations use performance.now(). Frame
+                        wait ends at requestAnimationFrame, a pre-paint
+                        opportunity estimate; it does not measure physical pixel
+                        presentation. Hidden-tab samples are excluded. The
+                        after-sample chart refresh is excluded from that
+                        sample’s timing; initial report and DOM work is
+                        included.
+                    </p>
+                </section>
+                <section class="panel">
+                    <h2>Browser clock alignment</h2>
+                    <p id="alignment">Clock alignment pending.</p>
+                    <p>
+                        Clock alignment applies only to the secondary
+                        browser-delivery estimate.
+                    </p>
+                </section>
+            </details>
+        </main>
+        <footer>
+            Bounded sampled traces · 10-second window · colors also have text
+            labels · no profiler upload
+        </footer>
+    </body>
+</html>

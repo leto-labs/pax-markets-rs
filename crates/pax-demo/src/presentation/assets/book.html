@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>Pax · Orderbook</title>
+        <link rel="stylesheet" href="/style.css" />
+        <script type="module" src="/app.js"></script>
+    </head>
+    <body data-page="book">
+        <header>
+            <div>
+                <strong>PAX ORDERBOOK</strong
+                ><span class="subtitle">A small Rust orderbook explorer</span>
+            </div>
+            <nav aria-label="Pages">
+                <a href="/" aria-current="page">Orderbook</a
+                ><a href="/latency">Latency</a>
+            </nav>
+        </header>
+        <main>
+            <div class="title">
+                <h1>Orderbook</h1>
+                <span id="source" class="badge">Connecting</span>
+            </div>
+            <p id="health" role="status">
+                Waiting for a synchronized snapshot.
+            </p>
+            <p id="display-freshness" class="muted" role="status">
+                Connecting to the demo…
+            </p>
+            <details id="recovery-history" class="diagnostics" hidden>
+                <summary id="recovery-summary">Recovery history</summary>
+                <p id="last-rejection" class="muted"></p>
+            </details>
+            <div id="cards" class="cards"></div>
+            <p id="primary-status" class="muted"></p>
+            <div id="books">{{BOOKS}}</div>
+            <details class="diagnostics">
+                <summary>Connection &amp; presentation</summary>
+                <section class="panel">
+                    <div id="secondary-cards" class="cards"></div>
+                </section>
+            </details>
+            <details class="diagnostics" id="ingress-clock-models">
+                <summary>Clock models for selected SDK events</summary>
+                <p id="ingress-clock-p50" class="muted">
+                    Waiting for a qualified primary ingress event.
+                </p>
+                <p id="ingress-clock-p99" class="muted">
+                    Clock details describe offset alignment; absolute clock
+                    accuracy and packet association are separate.
+                </p>
+            </details>
+            <p class="muted">
+                Last book update is the age of the latest accepted market event.
+                A quiet market can have an old book update while this display
+                stays fresh. Prices and quantities follow venue metadata;
+                displayed liquidity is not a guarantee of execution.
+            </p>
+            <p class="muted">
+                The SDK timer runs from observed local ingress to a validated
+                book update.
+                <a href="/latency"
+                    >Explore the stages and measurement limits →</a
+                >
+            </p>
+        </main>
+        <footer>
+            Read-only · no account or API key · 4 updates/s maximum · exact
+            venue integers
+        </footer>
+    </body>
+</html>

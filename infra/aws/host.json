@@ -1,0 +1,71 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Single-host Pax public orderbook demo",
+  "Parameters": {
+    "AmiId": {"Type": "AWS::EC2::Image::Id"},
+    "ZoneName": {"Type": "String"},
+    "ZoneId": {"Type": "String"},
+    "InstanceType": {"Type": "String", "Default": "c7a.xlarge", "AllowedValues": ["c7a.xlarge", "c7a.large"]},
+    "BoundaryArn": {"Type": "String"},
+    "TimingPlacement": {"Type": "String", "Default": "precision-time", "AllowedValues": ["precision-time"]},
+    "DemoHttps": {"Type": "String", "Default": "false", "AllowedValues": ["true", "false"]},
+    "OriginPrefixList": {"Type": "String", "Default": "", "AllowedPattern": "(^$|^pl-[a-f0-9]+$)"}
+  },
+  "Conditions": {"HttpsEnabled": {"Fn::Equals": [{"Ref": "DemoHttps"}, "true"]}, "OriginRestricted": {"Fn::Not": [{"Fn::Equals": [{"Ref": "OriginPrefixList"}, ""]}]}},
+  "Resources": {
+    "DemoQueries": {"Type": "AWS::CloudFront::OriginRequestPolicy", "Condition": "HttpsEnabled", "Properties": {"OriginRequestPolicyConfig": {"Name": {"Fn::Sub": "${AWS::StackName}-demo-queries"}, "Comment": "Uncached public observation; query strings only", "CookiesConfig": {"CookieBehavior": "none"}, "HeadersConfig": {"HeaderBehavior": "none"}, "QueryStringsConfig": {"QueryStringBehavior": "all"}}}},
+    "DemoDistribution": {"Type": "AWS::CloudFront::Distribution", "Condition": "HttpsEnabled", "DependsOn": "AddressAssociation", "Properties": {"Tags": [{"Key": "pax:owner", "Value": "pax-markets-rs"}], "DistributionConfig": {"Comment": {"Fn::Sub": "${AWS::StackName} public market-data demo"}, "Enabled": true, "IPV6Enabled": true, "HttpVersion": "http2and3", "PriceClass": "PriceClass_All", "ViewerCertificate": {"CloudFrontDefaultCertificate": true}, "Origins": [{"Id": "demo", "DomainName": {"Fn::GetAtt": ["Host", "PublicDnsName"]}, "CustomOriginConfig": {"HTTPPort": 80, "OriginProtocolPolicy": "http-only", "OriginReadTimeout": 10, "OriginKeepaliveTimeout": 5}}], "DefaultCacheBehavior": {"TargetOriginId": "demo", "ViewerProtocolPolicy": "redirect-to-https", "AllowedMethods": ["GET", "HEAD"], "CachedMethods": ["GET", "HEAD"], "Compress": true, "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad", "OriginRequestPolicyId": {"Ref": "DemoQueries"}}, "CustomErrorResponses": [{"ErrorCode": 400, "ErrorCachingMinTTL": 0}, {"ErrorCode": 403, "ErrorCachingMinTTL": 0}, {"ErrorCode": 404, "ErrorCachingMinTTL": 0}, {"ErrorCode": 405, "ErrorCachingMinTTL": 0}, {"ErrorCode": 414, "ErrorCachingMinTTL": 0}, {"ErrorCode": 416, "ErrorCachingMinTTL": 0}, {"ErrorCode": 500, "ErrorCachingMinTTL": 0}, {"ErrorCode": 501, "ErrorCachingMinTTL": 0}, {"ErrorCode": 502, "ErrorCachingMinTTL": 0}, {"ErrorCode": 503, "ErrorCachingMinTTL": 0}, {"ErrorCode": 504, "ErrorCachingMinTTL": 0}]}}},
+    "Vpc": {"Type": "AWS::EC2::VPC", "Properties": {"CidrBlock": "10.72.0.0/16", "EnableDnsSupport": true, "EnableDnsHostnames": true, "Tags": [{"Key": "pax:owner", "Value": "pax-markets-rs"}]}},
+    "Gateway": {"Type": "AWS::EC2::InternetGateway", "Properties": {"Tags": [{"Key": "pax:owner", "Value": "pax-markets-rs"}]}},
+    "GatewayAttachment": {"Type": "AWS::EC2::VPCGatewayAttachment", "Properties": {"VpcId": {"Ref": "Vpc"}, "InternetGatewayId": {"Ref": "Gateway"}}},
+    "Subnet": {"Type": "AWS::EC2::Subnet", "Properties": {"VpcId": {"Ref": "Vpc"}, "CidrBlock": "10.72.1.0/24", "AvailabilityZoneId": {"Ref": "ZoneId"}, "MapPublicIpOnLaunch": true, "Tags": [{"Key": "pax:owner", "Value": "pax-markets-rs"}]}},
+    "RouteTable": {"Type": "AWS::EC2::RouteTable", "Properties": {"VpcId": {"Ref": "Vpc"}, "Tags": [{"Key": "pax:owner", "Value": "pax-markets-rs"}]}},
+    "Route": {"Type": "AWS::EC2::Route", "DependsOn": "GatewayAttachment", "Properties": {"RouteTableId": {"Ref": "RouteTable"}, "DestinationCidrBlock": "0.0.0.0/0", "GatewayId": {"Ref": "Gateway"}}},
+    "SubnetRoutes": {"Type": "AWS::EC2::SubnetRouteTableAssociation", "Properties": {"SubnetId": {"Ref": "Subnet"}, "RouteTableId": {"Ref": "RouteTable"}}},
+    "SecurityGroup": {"Type": "AWS::EC2::SecurityGroup", "Properties": {"GroupDescription": "Public read-only HTTP demo; management through SSM", "VpcId": {"Ref": "Vpc"}, "SecurityGroupIngress": [{"IpProtocol": "tcp", "FromPort": 80, "ToPort": 80, "CidrIp": {"Fn::If": ["OriginRestricted", {"Ref": "AWS::NoValue"}, "0.0.0.0/0"]}, "SourcePrefixListId": {"Fn::If": ["OriginRestricted", {"Ref": "OriginPrefixList"}, {"Ref": "AWS::NoValue"}]}}], "SecurityGroupEgress": [{"IpProtocol": "-1", "CidrIp": "0.0.0.0/0"}], "Tags": [{"Key": "pax:owner", "Value": "pax-markets-rs"}]}},
+    "Placement": {"Type": "AWS::EC2::PlacementGroup", "Properties": {"Strategy": {"Ref": "TimingPlacement"}, "Tags": [{"Key": "pax:owner", "Value": "pax-markets-rs"}]}},
+    "Artifacts": {"Type": "AWS::S3::Bucket", "DeletionPolicy": "Retain", "UpdateReplacePolicy": "Retain", "Properties": {
+      "BucketName": {"Fn::Sub": "pax-${AWS::AccountId}-${AWS::Region}-${AWS::StackName}"},
+      "PublicAccessBlockConfiguration": {"BlockPublicAcls": true, "BlockPublicPolicy": true, "IgnorePublicAcls": true, "RestrictPublicBuckets": true},
+      "BucketEncryption": {"ServerSideEncryptionConfiguration": [{"ServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]},
+      "LifecycleConfiguration": {"Rules": [{"Id": "BoundReleaseRetention", "Status": "Enabled", "Prefix": "releases/", "ExpirationInDays": 30, "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 1}}]},
+      "Tags": [{"Key": "pax:owner", "Value": "pax-markets-rs"}]
+    }},
+    "RuntimeRole": {"Type": "AWS::IAM::Role", "Properties": {
+      "RoleName": {"Fn::Sub": "${AWS::StackName}-runtime"}, "Path": "/pax/", "PermissionsBoundary": {"Ref": "BoundaryArn"},
+      "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "ec2.amazonaws.com"}, "Action": "sts:AssumeRole"}]},
+      "Policies": [{"PolicyName": "SsmAndReleaseRead", "PolicyDocument": {"Version": "2012-10-17", "Statement": [
+        {"Effect": "Allow", "Action": ["ssm:UpdateInstanceInformation", "ssm:ListInstanceAssociations", "ssm:DescribeDocument", "ssm:GetDocument", "ssm:GetManifest", "ssm:ListAssociations", "ssm:PutInventory", "ssm:PutComplianceItems", "ssm:PutConfigurePackageResult", "ssm:UpdateAssociationStatus", "ssm:UpdateInstanceAssociationStatus", "ssmmessages:CreateControlChannel", "ssmmessages:CreateDataChannel", "ssmmessages:OpenControlChannel", "ssmmessages:OpenDataChannel"], "Resource": "*"},
+        {"Effect": "Allow", "Action": ["s3:GetObject", "s3:GetObjectVersion"], "Resource": {"Fn::Sub": "${Artifacts.Arn}/releases/*"}}
+      ]}}], "Tags": [{"Key": "pax:owner", "Value": "pax-markets-rs"}]
+    }},
+    "RuntimeProfile": {"Type": "AWS::IAM::InstanceProfile", "Properties": {"InstanceProfileName": {"Fn::Sub": "${AWS::StackName}-runtime"}, "Path": "/pax/", "Roles": [{"Ref": "RuntimeRole"}]}},
+    "Host": {"Type": "AWS::EC2::Instance", "DependsOn": ["Route", "SubnetRoutes"], "Properties": {
+      "ImageId": {"Ref": "AmiId"}, "InstanceType": {"Ref": "InstanceType"}, "SubnetId": {"Ref": "Subnet"}, "SecurityGroupIds": [{"Ref": "SecurityGroup"}], "IamInstanceProfile": {"Ref": "RuntimeProfile"}, "AvailabilityZone": {"Ref": "ZoneName"}, "PlacementGroupName": {"Ref": "Placement"},
+      "MetadataOptions": {"HttpEndpoint": "enabled", "HttpTokens": "required", "HttpPutResponseHopLimit": 1},
+      "BlockDeviceMappings": [{"DeviceName": "/dev/xvda", "Ebs": {"VolumeSize": 30, "VolumeType": "gp3", "Encrypted": true, "DeleteOnTermination": true}}],
+      "PropagateTagsToVolumeOnCreation": true,
+      "Tags": [{"Key": "pax:owner", "Value": "pax-markets-rs"}, {"Key": "Name", "Value": {"Ref": "AWS::StackName"}}],
+      "UserData": {"Fn::Base64": "#!/bin/bash\nset -euo pipefail\ndnf install -y ethtool traceroute sysstat jq util-linux\nuseradd --system --create-home --home-dir /var/lib/pax --shell /sbin/nologin pax\ninstall -d -o pax -g pax -m 0750 /var/lib/pax/captures /var/lib/pax/diagnostics\ninstall -d -m 0755 /opt/pax/releases\nsystemctl enable --now amazon-ssm-agent\n"}
+    }},
+    "Address": {"Type": "AWS::EC2::EIP", "DependsOn": "GatewayAttachment", "Properties": {"Domain": "vpc", "Tags": [{"Key": "pax:owner", "Value": "pax-markets-rs"}]}},
+    "AddressAssociation": {"Type": "AWS::EC2::EIPAssociation", "Properties": {"AllocationId": {"Fn::GetAtt": ["Address", "AllocationId"]}, "InstanceId": {"Ref": "Host"}}}
+  },
+  "Outputs": {
+    "SecurityGroupId": {"Value": {"Ref": "SecurityGroup"}},
+    "DemoDistributionId": {"Condition": "HttpsEnabled", "Value": {"Ref": "DemoDistribution"}},
+    "DemoUrl": {"Condition": "HttpsEnabled", "Value": {"Fn::Sub": "https://${DemoDistribution.DomainName}/"}},
+    "LatencyUrl": {"Condition": "HttpsEnabled", "Value": {"Fn::Sub": "https://${DemoDistribution.DomainName}/latency"}},
+    "OriginAccess": {"Value": {"Fn::If": ["OriginRestricted", "cloudfront-origin-facing-prefix-list", "public-http"]}},
+    "OriginProtocol": {"Value": "http-only"},
+
+    "InstanceId": {"Value": {"Ref": "Host"}},
+    "PublicIp": {"Value": {"Ref": "Address"}},
+    "PublicDns": {"Value": {"Fn::GetAtt": ["Host", "PublicDnsName"]}},
+    "ArtifactBucket": {"Value": {"Ref": "Artifacts"}},
+    "ZoneName": {"Value": {"Ref": "ZoneName"}},
+    "ZoneId": {"Value": {"Ref": "ZoneId"}},
+    "AmiId": {"Value": {"Ref": "AmiId"}},
+    "RuntimeRoleArn": {"Value": {"Fn::GetAtt": ["RuntimeRole", "Arn"]}}
+  }
+}

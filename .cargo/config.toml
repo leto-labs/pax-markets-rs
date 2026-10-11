@@ -1,0 +1,7 @@
+# Run aliases through scripts/cargo.sh to retain compiler-cache selection.
+[alias]
+check-all = "check --workspace --all-targets --locked"
+test-all = "test --workspace --locked"
+lint = "clippy --workspace --all-targets --locked -- -D warnings"
+demo = "run --locked -p pax-demo --"
+turnover = "bench --locked -p pax-lab --features demo-integration --bench packet_turnover --"

@@ -1,0 +1,1 @@
+{"type":"snapshot","data":{"market_id":"1","ask_agg_data":[{"ticks":101,"qty":"1000"}],"bid_agg_data":[{"ticks":100,"qty":"2000"}],"latest_seq_num":"1"}}

@@ -1,0 +1,89 @@
+{
+  "processing": {
+    "callback": {
+      "every": 64,
+      "width": 1,
+      "phase": 0
+    },
+    "decode": {
+      "every": 64,
+      "width": 1,
+      "phase": 0
+    },
+    "book": {
+      "preflight": {
+        "every": 128,
+        "width": 1,
+        "phase": 0
+      },
+      "mutation": {
+        "every": 256,
+        "width": 1,
+        "phase": 0
+      },
+      "validation": {
+        "every": 128,
+        "width": 1,
+        "phase": 0
+      }
+    },
+    "bookkeeping": {
+      "every": 128,
+      "width": 1,
+      "phase": 0
+    }
+  },
+  "receive": {
+    "timestamps": {
+      "every": 1,
+      "width": 1,
+      "phase": 0
+    },
+    "socket": {
+      "every": 128,
+      "width": 1,
+      "phase": 0
+    },
+    "read_detail": {
+      "every": 256,
+      "width": 1,
+      "phase": 0
+    },
+    "tls": {
+      "every": 128,
+      "width": 1,
+      "phase": 0
+    },
+    "websocket": {
+      "every": 128,
+      "width": 1,
+      "phase": 0
+    },
+    "pending": {
+      "every": 128,
+      "width": 1,
+      "phase": 0
+    },
+    "association": {
+      "every": 16,
+      "width": 1,
+      "phase": 0
+    }
+  },
+  "receive_emit_every": 8,
+  "delivery_every": 64,
+  "publication_ms": 250,
+  "sidecar": {
+    "every": 8,
+    "width": 1,
+    "phase": 0
+  },
+  "export_poll_ms": 2,
+  "browser_poll_ms": 250,
+  "browser": {
+    "every": 2,
+    "width": 1,
+    "phase": 0
+  },
+  "route_seconds": 60
+}

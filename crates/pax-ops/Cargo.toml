@@ -1,0 +1,22 @@
+[package]
+name = "pax-ops"
+description = "Optional namespaced AWS deployment for the Pax orderbook demo"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+readme = "README.md"
+
+[dependencies]
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+blake3.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+nix = { workspace = true, features = ["signal", "process"] }
+
+[lints]
+workspace = true

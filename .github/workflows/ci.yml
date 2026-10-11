@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tooling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Validate build tooling
+        run: |
+          for script in scripts/*.sh infra/aws/scripts/*.sh; do bash -n "$script"; done
+          shellcheck scripts/*.sh infra/aws/scripts/*.sh
+          python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+          python3 -m unittest discover -s infra/aws/tests -p 'test_*.py'
+          scripts/check-fixtures.sh
+          node --test crates/pax-demo/tests/browser/*.test.mjs
+          node --check crates/pax-demo/src/presentation/assets/app.js
+          git diff --check
+
+  rust:
+    needs: tooling
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PAX_SCCACHE: "1"
+      SCCACHE_GHA_ENABLED: "true"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: |
+          rust_version="$(python3 -c 'import tomllib; print(tomllib.load(open("rust-toolchain.toml", "rb"))["toolchain"]["channel"])')"
+          rustup toolchain install "$rust_version" --profile minimal --component clippy --component rustfmt
+      - name: Read compiler cache version
+        id: sccache
+        run: echo "version=v$(cat .sccache-version)" >> "$GITHUB_OUTPUT"
+      - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+        with:
+          version: ${{ steps.sccache.outputs.version }}
+      - name: Cache Cargo downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+      - name: Validate Rust and offline benchmark harness
+        run: scripts/check.sh
+      - name: Validate isolated SDK consumer
+        run: python3 scripts/check-sdk-consumer.py
+      - name: Validate minimal and additive measurement groups
+        run: scripts/check-measurements.sh
+      - name: Validate optional benchmark features
+        run: scripts/cargo.sh clippy -p pax-lab --all-features --all-targets --locked -- -D warnings
+      - name: Report compiler cache statistics
+        if: always()
+        run: sccache --show-stats

@@ -1,0 +1,80 @@
+[workspace]
+members = ["crates/*"]
+default-members = ["crates/pax-types", "crates/pax-client", "crates/pax-book", "crates/pax-demo"]
+resolver = "3"
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+license = "MIT"
+
+[workspace.dependencies]
+pax-types = { path = "crates/pax-types" }
+pax-client = { path = "crates/pax-client", default-features = false }
+pax-book = { path = "crates/pax-book" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.151", features = ["raw_value"] }
+serde_path_to_error = "0.1.20"
+atoi_simd = "0.18.1"
+thiserror = "2.0.21"
+bytes = "1"
+tokio = { version = "1.53.2", features = ["macros", "rt-multi-thread", "net", "sync", "time", "signal", "io-util", "process"] }
+tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-webpki-roots"] }
+rustls = { version = "0.23.45", default-features = false, features = ["std", "aws_lc_rs", "tls12"] }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["aws_lc_rs", "tls12"] }
+rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs"] }
+webpki-roots = "1.0.9"
+rtrb = "0.4.0"
+nix = { version = "0.31.3", features = ["socket", "uio", "time", "net", "fs", "sched"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "stream"] }
+futures-util = { version = "0.3.34", features = ["sink"] }
+blake3 = "1.8.7"
+clap = { version = "4.6.7", features = ["derive"] }
+axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "query", "tokio"] }
+core_affinity = "0.8.3"
+
+# Optional executable-only optimization experiments; not library defaults.
+mimalloc = { version = "0.1.52", default-features = false }
+cputicks = "0.1.0"
+simd-json = { version = "0.18.1", features = ["128bit"] }
+hotpath = { version = "0.28.5", default-features = false, features = ["hotpath"] }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+
+# Cargo profiles: https://doc.rust-lang.org/cargo/reference/profiles.html
+[profile.dev]
+debug = 1
+incremental = true
+
+[profile.dev.package."*"]
+debug = 0
+
+[profile.test]
+debug = 1
+incremental = true
+
+[profile.test.package."*"]
+debug = 0
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+overflow-checks = true
+
+[profile.release-perf]
+inherits = "release"
+debug = 1
+strip = "none"
+
+[profile.bench]
+inherits = "release"
+debug = 1
+strip = "none"

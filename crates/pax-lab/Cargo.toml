@@ -1,0 +1,62 @@
+[package]
+name = "pax-lab"
+description = "Offline decode, orderbook, TLS and WebSocket benchmarks"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+readme = "README.md"
+
+[dependencies]
+pax-types.workspace = true
+pax-book.workspace = true
+pax-client = { workspace = true, features = ["test-support"] }
+pax-demo = { path = "../pax-demo", default-features = false, optional = true }
+bytes.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+blake3.workspace = true
+clap.workspace = true
+futures-util.workspace = true
+tokio-tungstenite.workspace = true
+tokio-rustls.workspace = true
+mimalloc = { workspace = true, optional = true }
+cputicks = { workspace = true, optional = true }
+simd-json = { workspace = true, optional = true }
+hotpath = { workspace = true, optional = true }
+
+[lints]
+workspace = true
+
+[features]
+demo-integration = ["dep:pax-demo"]
+default = ["receive-timestamps", "receive-stages", "delivery-traces", "processing-traces", "telemetry-export"]
+receive-timestamps = ["pax-client/receive-timestamps", "pax-demo?/receive-timestamps"]
+socket-readbacks = ["pax-client/socket-readbacks", "pax-demo?/socket-readbacks"]
+receive-association = ["pax-client/receive-association", "pax-demo?/receive-association"]
+clock-model-details = ["pax-client/clock-model-details", "pax-demo?/clock-model-details"]
+phc-background = ["clock-model-details", "pax-client/phc-background", "pax-demo?/phc-background"]
+receive-stages = ["receive-association", "pax-client/receive-stages", "pax-demo?/receive-stages"]
+delivery-traces = ["pax-client/delivery-traces", "pax-demo?/delivery-traces"]
+processing-traces = ["pax-demo?/processing-traces"]
+telemetry-export = ["pax-client/diagnostic-handoff", "pax-demo?/telemetry-export"]
+allocation-profile = []
+
+mimalloc = ["dep:mimalloc", "pax-demo?/mimalloc"]
+cputicks-experiment = ["dep:cputicks"]
+simd-experiment = ["dep:simd-json"]
+hotpath = ["dep:hotpath"]
+
+
+[[bench]]
+name = "packet_turnover"
+path = "benches/packet_turnover.rs"
+harness = false
+
+[[bench]]
+name = "protocol_components"
+path = "benches/protocol_components.rs"
+harness = false

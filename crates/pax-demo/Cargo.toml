@@ -1,0 +1,49 @@
+[package]
+name = "pax-demo"
+description = "Pax market-data CLI, replay, and local timing"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+readme = "README.md"
+
+[dependencies]
+pax-types.workspace = true
+pax-client.workspace = true
+pax-book.workspace = true
+bytes.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+blake3.workspace = true
+clap.workspace = true
+axum.workspace = true
+core_affinity.workspace = true
+mimalloc = { workspace = true, optional = true }
+[lints]
+workspace = true
+
+[[bin]]
+name = "pax-demo"
+path = "src/main.rs"
+
+[dev-dependencies]
+futures-util.workspace = true
+tokio-tungstenite.workspace = true
+pax-client = { workspace = true, features = ["test-support"] }
+tokio-rustls.workspace = true
+
+[features]
+default = ["receive-timestamps", "receive-stages", "delivery-traces", "processing-traces", "telemetry-export"]
+receive-timestamps = ["pax-client/receive-timestamps"]
+socket-readbacks = ["pax-client/socket-readbacks"]
+receive-association = ["pax-client/receive-association"]
+clock-model-details = ["pax-client/clock-model-details"]
+phc-background = ["clock-model-details", "pax-client/phc-background"]
+receive-stages = ["receive-association", "pax-client/receive-stages"]
+delivery-traces = ["pax-client/delivery-traces"]
+processing-traces = []
+telemetry-export = ["pax-client/diagnostic-handoff"]
+mimalloc = ["dep:mimalloc"]

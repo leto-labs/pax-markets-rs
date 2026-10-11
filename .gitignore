@@ -1,0 +1,14 @@
+/target/
+/data/
+/captures/
+/benchmark-results/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store
+__pycache__/
+*.pyc
+
+/.playwright-cli/
